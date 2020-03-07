@@ -8,10 +8,13 @@ class Hero {
     constructor(positionX, positionY, size) {
             this.positionX = positionX,
             this.positionY = positionY,
-            this.size = size
+            this.size = size,
+            this.jumping = false, 
+            this.yVelocity = 0,
+            this.xVelocity =0 
        }
 
-       rysuj () {
+       draw () {
         ctx.beginPath();
         ctx.moveTo(this.positionX, this.positionY);
         ctx.lineTo(this.positionX + this.size, this.positionY);
@@ -19,18 +22,14 @@ class Hero {
         ctx.lineTo(this.positionX, this.positionY + this.size);
         ctx.closePath();
         ctx.stroke();
+        }
     }
 
-        jump() { 
-            this.positionY -=10;  
-        }
-}
-
-class Plansza { 
+class Board { 
     constructor (positionY, width) { 
         this.positionY = positionY, 
         this.width = width,
-        this.rysuj = function () {
+        this.draw = function () {
             ctx.beginPath();
             ctx.moveTo(0, positionY);
             ctx.lineTo(width, positionY);
@@ -47,7 +46,7 @@ class Enemy {
         this.height = height
     }
 
-    rysuj() {
+    draw() {
         ctx.beginPath();
         ctx.moveTo(this.positionX, this.positionY);
         ctx.lineTo(this.positionX + this.width, this.positionY);
@@ -63,47 +62,112 @@ class Enemy {
 }
 
 
-function gameInit () { 
-    pong.sciezka = new Plansza(300, canvas.width)
-    pong.enemy = [];
-    pong.enemy[0] = new Enemy(200, 270, 30, 10)
-    pong.enemy[1] = new Enemy(400, 270, 30, 10)
-    pong.gracze = [];
-    pong.gracze[0] = new Hero(20,290,10);
-}
-
-gameInit();
-
-document.addEventListener("keydown", function(e) { 
-    console.log(e.keyCode);
-    if(e.keyCode == 38) { 
-        pong.gracze[0].jump();
+    controller = { 
+        left : false, 
+        right: false, 
+        up: false,
+        keyListener: function(event) { 
+        let key_state = (event.type == "keydown")?true:false;
+            switch(event.keyCode) { 
+                case 37: 
+                    controller.left = key_state;
+                break;
+                case 38:
+                    controller.up = key_state;
+                break;
+                case 39: 
+                    controller.right = key_state;
+                break;
+            }
+        }
     }
-})
 
-function rysuj() { 
-    pong.sciezka.rysuj();
+    function gameInit () { 
+        pong.board = new Board(300, canvas.width)
+        pong.enemy = [];
+        pong.enemy[0] = new Enemy(200, 270, 30, 10)
+        pong.enemy[1] = new Enemy(400, 270, 30, 10)
+        pong.hero = new Hero(20,290,10);
+    }
+
+    gameInit();
+
+    document.addEventListener("keydown", controller.keyListener);
+    document.addEventListener("keyup", controller.keyListener);
+
+
+function draw() { 
+    pong.board.draw();
     pong.enemy.forEach(enemy => {
-        enemy.rysuj();
+        enemy.draw();
         enemy.move(1);
     });
-    pong.gracze[0].rysuj();
-    collision();
+    pong.hero.draw();
 }
 
-function collision() { 
-    const playerPositionX = pong.gracze[0].positionX+pong.gracze[0].size;
-    const playerPositionY = pong.gracze[0].positionY+pong.gracze[0].size;
+function checkEnemyPosition() { 
+    pong.enemy.forEach(enemy => { 
+        if(enemy.positionX+enemy.width < 0)
+            {
+                enemy.positionX = 250;
+            }
+        })
+}
+
+function collisions() { 
+    const playerPositionX = Math.floor(pong.hero.positionX+pong.hero.size);
+    const playerPositionY = pong.hero.positionY;
     
     pong.enemy.forEach(enemy => {
-        if (enemy.positionX == playerPositionX && playerPositionX >= enemy.positionY)
-            console.log("kolizja");
+        let enemyPostionWidth = enemy.positionX + enemy.width;
+        if (enemy.positionX <= playerPositionX && playerPositionX <= enemyPostionWidth && playerPositionY >= enemy.positionY ) 
+        {
+           console.log("kolizja");
+        } 
     });
+
+
 }
 
 const gameOn = function() { 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    rysuj();
+    if(controller.up && pong.hero.jumping == false)  { 
+        pong.hero.yVelocity -= 20;
+        pong.hero.jumping = true;
+        console.log(pong.hero.positionX)
+    } 
+
+    if(controller.left) { 
+        pong.hero.xVelocity -= 0.5; 
+    }
+
+    
+    if(controller.right) { 
+        pong.hero.xVelocity += 0.5; 
+    }
+    
+
+    pong.hero.yVelocity +=1.5;
+    pong.hero.positionX += pong.hero.xVelocity;
+    pong.hero.positionY += pong.hero.yVelocity;
+    pong.hero.yVelocity *=0.9;
+    pong.hero.xVelocity *=0.9;
+    
+
+    if(pong.hero.positionY > 290) { 
+        pong.hero.jumping = false;
+        pong.hero.positionY = 290;
+        pong.hero.yVelocity = 0;
+    }
+
+    if( pong.hero.positionX <= 0)
+            pong.hero.positionX = 0
+     else if(pong.hero.positionX  >= canvas.width)
+            pong.hero.positionX = canvas.width;
+
+    draw();
+    collisions();
+    checkEnemyPosition();
     requestAnimationFrame(gameOn);
 }
 
